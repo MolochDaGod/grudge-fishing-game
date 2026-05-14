@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grudge Fishing — Grudge Studio Forge</title>
+  <link rel="icon" type="image/png" href="https://assets.grudge-studio.com/branding/grudge-icon-32x32.png">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Jost:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #06101a; --card: #0d1b2a; --text: #e0e6f0; --muted: #6b7fa0;
+      --border: #1b2d44; --accent: #4fc3f7; --gold: #ffd54f; --danger: #ef5350;
+      --green: #66bb6a; --epic: #ab47bc; --legendary: #ff7043;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Jost', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
+    #game-canvas { position: fixed; inset: 0; z-index: 0; }
+    #hud-top { position: fixed; top: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center;
+      padding: 8px 16px; gap: 12px; background: linear-gradient(180deg, rgba(6,16,26,.95) 0%, rgba(6,16,26,.4) 100%);
+      pointer-events: none; }
+    #hud-top > * { pointer-events: auto; }
+    #hud-top h1 { font-family: 'Cinzel', serif; font-size: 1rem; color: var(--accent); white-space: nowrap; letter-spacing: 1px; }
+    .hud-stat { display: flex; align-items: center; gap: 4px; font-size: .75rem; color: var(--muted); }
+    .hud-stat .val { color: var(--accent); font-family: monospace; }
+    #hud-top .spacer { flex: 1; }
+    #state-badge { padding: 4px 12px; border-radius: 12px; font-size: .7rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 1px; background: rgba(79,195,247,.15); color: var(--accent); border: 1px solid rgba(79,195,247,.3); }
+    #hud-bottom { position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 16px; background: linear-gradient(0deg, rgba(6,16,26,.95) 0%, rgba(6,16,26,.4) 100%);
+      pointer-events: none; }
+    #hud-bottom > * { pointer-events: auto; }
+    .ctrl-btn { padding: 8px 20px; border: 1px solid var(--border); border-radius: 8px;
+      background: rgba(13,27,42,.9); color: var(--text); font-family: 'Jost', sans-serif;
+      font-size: .8rem; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 6px; }
+    .ctrl-btn:hover { border-color: var(--accent); background: rgba(79,195,247,.1); }
+    .ctrl-btn:active { transform: scale(.95); }
+    .ctrl-btn .key { display: inline-block; padding: 1px 6px; border-radius: 3px; background: rgba(255,255,255,.1);
+      font-family: monospace; font-size: .7rem; color: var(--accent); }
+    .ctrl-btn:disabled { opacity: .4; cursor: default; }
+    #rod-panel { position: fixed; left: 12px; top: 50%; transform: translateY(-50%); z-index: 10;
+      display: flex; flex-direction: column; gap: 4px; }
+    .rod-btn { width: 44px; height: 44px; border-radius: 8px; border: 2px solid var(--border);
+      background: rgba(13,27,42,.9); color: var(--text); font-size: .6rem; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all .2s; }
+    .rod-btn:hover { border-color: var(--accent); }
+    .rod-btn.active { border-color: var(--accent); background: rgba(79,195,247,.15); }
+    .rod-btn .rod-icon { font-size: 1.1rem; }
+    .rod-btn .rod-tier { font-size: .55rem; color: var(--muted); }
+    #tension-panel { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 20;
+      width: 320px; padding: 16px; border-radius: 12px; border: 1px solid var(--border);
+      background: rgba(6,16,26,.95); backdrop-filter: blur(10px); display: none; text-align: center; }
+    #tension-panel.visible { display: block; }
+    #tension-panel h3 { font-family: 'Cinzel', serif; font-size: .9rem; color: var(--accent); margin-bottom: 8px; }
+    .tension-bar { height: 20px; background: var(--card); border-radius: 10px; position: relative; overflow: hidden; margin-bottom: 8px;
+      border: 1px solid var(--border); }
+    .tension-green { position: absolute; left: 30%; width: 40%; top: 0; bottom: 0; background: rgba(102,187,106,.15); }
+    .tension-marker { position: absolute; top: -2px; bottom: -2px; width: 6px; border-radius: 3px;
+      background: var(--accent); box-shadow: 0 0 8px var(--accent); transition: left 50ms; }
+    .progress-bar { height: 8px; background: var(--card); border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); border-radius: 4px; transition: width .1s; }
+    .tension-hint { font-size: .65rem; color: var(--muted); margin-top: 6px; }
+    #catch-popup { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(0);
+      z-index: 25; padding: 20px 32px; border-radius: 16px; text-align: center;
+      background: rgba(6,16,26,.95); border: 2px solid var(--gold);
+      box-shadow: 0 0 40px rgba(255,213,79,.2); transition: transform .4s cubic-bezier(.175,.885,.32,1.275); }
+    #catch-popup.show { transform: translate(-50%, -50%) scale(1); }
+    #catch-popup .catch-fish { font-family: 'Cinzel', serif; font-size: 1.3rem; color: var(--gold); }
+    #catch-popup .catch-weight { font-size: .9rem; color: var(--text); margin-top: 4px; }
+    #catch-popup .catch-rarity { font-size: .7rem; padding: 2px 10px; border-radius: 10px; display: inline-block; margin-top: 6px; }
+    .rarity-common { background: rgba(107,127,160,.2); color: var(--muted); }
+    .rarity-uncommon { background: rgba(102,187,106,.2); color: var(--green); }
+    .rarity-rare { background: rgba(79,195,247,.2); color: var(--accent); }
+    .rarity-epic { background: rgba(171,71,188,.2); color: var(--epic); }
+    .rarity-legendary { background: rgba(255,112,67,.2); color: var(--legendary); }
+    #catch-popup .catch-xp { font-size: .7rem; color: var(--accent); margin-top: 4px; }
+    #catch-popup .catch-record { font-size: .7rem; color: var(--gold); margin-top: 2px; font-weight: 600; }
+    #loading { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; background: var(--bg); }
+    #loading.hidden { display: none; }
+    #loading h1 { font-family: 'Cinzel', serif; font-size: 1.6rem; color: var(--accent); margin-bottom: 12px; letter-spacing: 2px; }
+    #loading .spinner { width: 40px; height: 40px; border: 3px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: var(--muted); margin-top: 12px; font-size: .85rem; }
+    #loading .credit { position: absolute; bottom: 20px; font-size: .65rem; color: var(--muted); }
+    #loading .credit a { color: var(--accent); text-decoration: none; }
+    #char-panel { position: fixed; right: 12px; top: 50%; transform: translateY(-50%); z-index: 10;
+      display: flex; flex-direction: column; gap: 4px; }
+    .char-btn { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--border);
+      background: rgba(13,27,42,.9); color: var(--text); font-size: .55rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; transition: all .2s; overflow: hidden; }
+    .char-btn:hover { border-color: var(--accent); }
+    .char-btn.active { border-color: var(--accent); box-shadow: 0 0 12px rgba(79,195,247,.3); }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+  <div id="loading">
+    <h1>GRUDGE FISHING</h1>
+    <div class="spinner"></div>
+    <p id="load-text">Loading island...</p>
+    <div class="credit">A <a href="https://grudge-studio.com" target="_blank">Grudge Studio Forge</a> game — by Racalvin The Pirate King</div>
+  </div>
+  <div id="hud-top">
+    <h1>🎣 GRUDGE FISHING</h1>
+    <div class="hud-stat">🐟 Catches: <span class="val" id="stat-catches">0</span></div>
+    <div class="hud-stat">⭐ XP: <span class="val" id="stat-xp">0</span></div>
+    <div class="hud-stat">🪙 Gold: <span class="val" id="stat-gold">0</span></div>
+    <div class="spacer"></div>
+    <div id="state-badge">READY</div>
+  </div>
+  <div id="rod-panel"></div>
+  <div id="char-panel"></div>
+  <div id="tension-panel">
+    <h3>🐟 REEL IT IN!</h3>
+    <div class="tension-bar">
+      <div class="tension-green"></div>
+      <div class="tension-marker" id="tension-marker"></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="tension-hint">Click / press <b>R</b> to pump the reel — keep the marker in the green zone!</div>
+  </div>
+  <div id="catch-popup">
+    <div class="catch-fish" id="catch-name">—</div>
+    <div class="catch-weight" id="catch-weight">—</div>
+    <div class="catch-rarity rarity-common" id="catch-rarity">common</div>
+    <div class="catch-xp" id="catch-xp">+0 XP • +0 Gold</div>
+    <div class="catch-record" id="catch-record" style="display:none">🏆 NEW PERSONAL RECORD!</div>
+  </div>
+  <div id="hud-bottom">
+    <button class="ctrl-btn" id="btn-cast" title="Cast your line"><span class="key">F</span> Cast</button>
+    <button class="ctrl-btn" id="btn-reel" disabled title="Reel when fish bites"><span class="key">R</span> Reel</button>
+    <button class="ctrl-btn" id="btn-cancel" title="Retract line"><span class="key">Esc</span> Cancel</button>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
